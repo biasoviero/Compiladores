@@ -190,13 +190,15 @@ bool_result_t codegen_bool_expr(codegen_ctx_t *ctx, ast_node_t *expr)
              * Semântica: e1 && e2 é falso se e1 é falso (curto-circuito).
              *            Se e1 é verdadeiro, avalia e2.
              */
-            fprintf(stderr, "[CODEGEN] TODO-E3-A: '&&' não implementado.\n");
-            /* stub: gera código das subexpressões mas não conecta as listas */
             bool_result_t r1 = codegen_bool_expr(ctx, expr->children[0]);
+            char *lmid = tac_new_label();
+            patch_list_backpatch(r1.true_list, lmid);
+            codegen_emit(ctx, TAC_LABEL, lmid, NULL, NULL);
             bool_result_t r2 = codegen_bool_expr(ctx, expr->children[1]);
             res.true_list  = r2.true_list;
             res.false_list = patch_list_merge(r1.false_list, r2.false_list);
             patch_list_free(r1.true_list);
+            free(lmid);
         } else {
             /*
              * TODO-E3-A (||): implemente a geração de código para ||.
@@ -211,12 +213,15 @@ bool_result_t codegen_bool_expr(codegen_ctx_t *ctx, ast_node_t *expr)
              *
              * Semântica: e1 || e2 é verdadeiro se e1 é verdadeiro (curto-circuito).
              */
-            fprintf(stderr, "[CODEGEN] TODO-E3-A: '||' não implementado.\n");
             bool_result_t r1 = codegen_bool_expr(ctx, expr->children[0]);
+            char *lmid = tac_new_label();
+            patch_list_backpatch(r1.false_list, lmid);
+            codegen_emit(ctx, TAC_LABEL, lmid, NULL, NULL);
             bool_result_t r2 = codegen_bool_expr(ctx, expr->children[1]);
             res.true_list  = patch_list_merge(r1.true_list, r2.true_list);
             res.false_list = r2.false_list;
             patch_list_free(r1.false_list);
+            free(lmid);
         }
     } else {
         /* Expressão simples (relacional ou variável): emite JUMPT + JUMPF */
@@ -346,9 +351,35 @@ void codegen_stmt(codegen_ctx_t *ctx, ast_node_t *stmt)
          *   Senão:
          *     Preenche cond.false_list com lfalse → emite lfalse
          * --------------------------------------------------------------- */
-        case AST_IF:
-            fprintf(stderr, "[CODEGEN] TODO-E3-B: if não implementado.\n");
+        case AST_IF: {
+            bool_result_t cond = codegen_bool_expr(ctx, stmt->children[0]);
+            char *ltrue = tac_new_label();
+            patch_list_backpatch(cond.true_list, ltrue);
+            codegen_emit(ctx, TAC_LABEL, ltrue, NULL, NULL);
+            codegen_stmt(ctx, stmt->children[1]);
+            patch_list_free(cond.true_list);
+            free(ltrue);
+
+            if (stmt->children[2]) {
+                char *lend = tac_new_label();
+                codegen_emit(ctx, TAC_JUMP, lend, NULL, NULL);
+                char *lfalse = tac_new_label();
+                patch_list_backpatch(cond.false_list, lfalse);
+                codegen_emit(ctx, TAC_LABEL, lfalse, NULL, NULL);
+                codegen_stmt(ctx, stmt->children[2]);
+                codegen_emit(ctx, TAC_LABEL, lend, NULL, NULL);
+                patch_list_free(cond.false_list);
+                free(lfalse);
+                free(lend);
+            } else {
+                char *lfalse = tac_new_label();
+                patch_list_backpatch(cond.false_list, lfalse);
+                codegen_emit(ctx, TAC_LABEL, lfalse, NULL, NULL);
+                patch_list_free(cond.false_list);
+                free(lfalse);
+            }
             break;
+        }
 
         /* ---------------------------------------------------------------
          * TODO-E3-C: while
