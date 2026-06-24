@@ -52,9 +52,22 @@ patch_list_t *patch_list_make(tac_instr_t *instr)
  */
 patch_list_t *patch_list_merge(patch_list_t *l1, patch_list_t *l2)
 {
-    /* TODO-E3-F: implemente aqui. */
-    (void)l2;
-    return l1;   /* stub: l2 é descartada — expressões compostas ficam incompletas */
+    if (l1 == NULL) {
+        return l2;
+    }
+    
+    if (l2 == NULL) {
+        return l1;
+    }
+
+    patch_list_t *current = l1;
+    while (current->next != NULL) {
+        current = current->next;
+    }
+    
+    current->next = l2;
+
+    return l1;
 }
 
 /*
@@ -74,9 +87,22 @@ patch_list_t *patch_list_merge(patch_list_t *l1, patch_list_t *l2)
  */
 void patch_list_backpatch(patch_list_t *list, const char *label)
 {
-    /* TODO-E3-E: implemente aqui. */
-    (void)list; (void)label;
-    /* stub: não faz nada — saltos ficam com rótulo "???" */
+    if (label == NULL) {
+        return;
+    }
+
+    patch_list_t *current = list;
+    
+    while (current != NULL) {
+        if (current->instr != NULL) {
+            if (current->instr->result != NULL) {
+                free(current->instr->result);
+            }
+            current->instr->result = strdup(label);
+        }
+        
+        current = current->next;
+    }
 }
 
 /* Fornecida completa. */
