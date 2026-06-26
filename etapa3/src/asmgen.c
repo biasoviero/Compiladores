@@ -436,14 +436,9 @@ void asmgen_function(asmgen_ctx_t *ctx, const tac_instr_t *begin)
 
     /* Salva parâmetros dos registradores no frame */
     int param_idx = 0;
-    for (const tac_instr_t *t = begin->next; t && t->op != TAC_ENDFUNC; t = t->next) {
-        if (t->op == TAC_DECL_LOCAL && param_idx < n_arg_regs) {
-            sym_entry_t *e = symtab_lookup(ctx->symtab, t->result);
-            if (e && e->scope == SYM_SCOPE_LOCAL && e->offset < 0) {
-                int off = e->offset;
-                fprintf(out, "    movq    %s, %d(%%rbp)\n", arg_regs[param_idx++], off);
-            }
-        }
+    for (const tac_instr_t *t = begin->next; t && t->op != TAC_ENDFUNC && t->op == TAC_DECL_LOCAL && param_idx < n_arg_regs; t = t->next) {
+        int off = asmgen_var_offset(ctx, t->result);
+        fprintf(out, "    movq    %s, %d(%%rbp)\n", arg_regs[param_idx++], off);
     }
 
     /* Segunda passagem: gera código; coleta parâmetros antes de cada CALL */
